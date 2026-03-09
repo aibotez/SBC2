@@ -83,18 +83,44 @@ class FileViewSet(viewsets.ModelViewSet):
         session.save()
 
         if session.received_size >= total_size:
-            # --- 【关键：转正逻辑】 ---
+            # 1. 获取父目录对象（如果前端传了 parent_id）
+            parent_id = request.data.get('parent_id')
+            parent_folder = FileRecord.objects.filter(id=parent_id, is_folder=True).first()
+
+            # 2. 创建记录
+            new_record = FileRecord.objects.create(
+                user=request.user,
+                name=file_name,
+                file_md5=file_md5,
+                size=total_size,
+                parent=parent_folder,  # 填充 Parent folder
+                is_folder=False
+            )
+
+            # 3. 关联并保存物理文件
             with open(temp_path, 'rb') as f:
-                # 创建正式的文件记录
-                new_record = FileRecord.objects.create(
-                    user=request.user,
-                    name=file_name,
-                    file_md5=file_md5,
-                    size=total_size,
-                    is_folder=False
-                )
-                # 关联物理文件（这会自动把文件从 temp 移动到 uploads/%Y/%m/%d/）
+                # save() 会自动处理文件存入 MEDIA_ROOT 并生成相对路径
                 new_record.file_obj.save(file_name, ContentFile(f.read()), save=True)
+
+            # 4. 手动更新 Physical path (绝对路径)
+            new_record.physical_path = new_record.file_obj.path
+            new_record.save()
+
+
+
+        # if session.received_size >= total_size:
+        #     # --- 【关键：转正逻辑】 ---
+        #     with open(temp_path, 'rb') as f:
+        #         # 创建正式的文件记录
+        #         new_record = FileRecord.objects.create(
+        #             user=request.user,
+        #             name=file_name,
+        #             file_md5=file_md5,
+        #             size=total_size,
+        #             is_folder=False
+        #         )
+        #         # 关联物理文件（这会自动把文件从 temp 移动到 uploads/%Y/%m/%d/）
+        #         new_record.file_obj.save(file_name, ContentFile(f.read()), save=True)
 
             # 4. 清理工作
             session.delete()
