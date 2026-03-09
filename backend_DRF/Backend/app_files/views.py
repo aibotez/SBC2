@@ -12,6 +12,7 @@ from rest_framework.decorators import action
 from .models import FileRecord, UploadSession
 import os,shutil
 from django.conf import settings
+from django.db import transaction
 from django.core.files.base import ContentFile
 
 
@@ -94,28 +95,7 @@ class FileViewSet(viewsets.ModelViewSet):
         # 1. 解析参数
         file_md5 = request.data.get('file_md5')
         file_name = request.data.get('file_name')
-
-        path_str = request.data.get('path')  # 脚本传: "experiment/plasma_data"
-
-        # --- [2. 路径转对象逻辑] ---
-        # 这个 parent_obj 就是数据库里的“文件夹记录”
-        parent_obj = None
-        if path_str:
-            # 逐级解析路径，确保每一层文件夹都存在
-            parts = [p for p in path_str.strip('/').split('/') if p]
-            current_parent = None
-            for part in parts:
-                # 这里的 get_or_create 会自动产生 parent_id
-                folder_obj, created = FileRecord.objects.get_or_create(
-                    user=request.user,
-                    name=part,
-                    parent_folder=current_parent,
-                    is_folder=True,
-                    defaults={'size': 0}
-                )
-                current_parent = folder_obj
-            parent_obj = current_parent  # 最终解析出来的文件夹对象
-
+        path_str = request.data.get('path', '').strip('/')  # 脚本传: "experiment/plasma_data"
 
         try:
             total_size = int(request.data.get('total_size', 0))
@@ -123,47 +103,44 @@ class FileViewSet(viewsets.ModelViewSet):
         except (ValueError, TypeError):
             return Response({"error": "参数格式错误"}, status=400)
 
+        # --- [2. 路径转对象逻辑：确保数据库层级存在] ---
+        parent_obj = None
+        if path_str:
+            parts = [p for p in path_str.split('/') if p]
+            current_parent = None
+            for part in parts:
+                # get_or_create 保证幂等性，不会生成重复目录
+                folder_obj, _ = FileRecord.objects.get_or_create(
+                    user=request.user,
+                    name=part,
+                    parent_folder=current_parent,
+                    is_folder=True
+                )
+                current_parent = folder_obj
+            parent_obj = current_parent
 
+        # --- [3. 三重检查秒传逻辑] ---
 
-        # --- 【核心逻辑：三重检查秒传】 ---
-
-        # 检查点 1：完全相同（路径相同 + MD5 相同） -> 什么都不做
+        # 检查点 1：完全相同（路径相同 + MD5 相同）
         exact_match = FileRecord.objects.filter(
-            user=request.user,
-            name=file_name,
-            parent_folder=parent_obj,
-            file_md5=file_md5,
-            is_folder=False
+            user=request.user, name=file_name, parent_folder=parent_obj, file_md5=file_md5, is_folder=False
         ).first()
-
         if exact_match and os.path.exists(exact_match.physical_path):
-            return Response({
-                "status": "success",
-                "msg": "文件已存在，无需重复上传",
-                "file_id": exact_match.id,
-                "instant": True  # 标记为完全幂等跳过
-            })
+            return Response({"status": "success", "msg": "文件已存在", "file_id": exact_match.id, "instant": True})
 
         # 检查点 2：MD5 相同但路径不同 -> 物理拷贝秒传
         existing_file = FileRecord.objects.filter(file_md5=file_md5, is_folder=False).first()
-
         if existing_file and os.path.exists(existing_file.physical_path):
-            # A. 处理同名冲突：如果当前路径下已有“同名但 MD5 不同”的文件，清理它
-            # 注意：上方的检查点 1 已经排除了 MD5 相同的情况
-            old_record = FileRecord.objects.filter(
-                user=request.user, name=file_name, parent_folder=parent_obj, is_folder=False
-            ).first()
-            if old_record:
-                if old_record.physical_path and os.path.exists(old_record.physical_path):
-                    os.remove(old_record.physical_path)
-                old_record.delete()
-
-            # B. 执行物理拷贝秒传
-
-            relative_dir = os.path.join('data', request.user.username,path_str)
-            abs_dir = os.path.join(settings.BASE_DIR, relative_dir)
+            # 构造目标物理路径：data/username/path/filename
+            rel_dir = os.path.join('data', request.user.username, path_str)
+            abs_dir = os.path.join(settings.BASE_DIR, rel_dir)  # 建议统一基于 MEDIA_ROOT
             os.makedirs(abs_dir, exist_ok=True)
             new_physical_path = os.path.join(abs_dir, file_name)
+
+            # 清理该位置可能存在的“同名但不同MD5”的旧文件
+            FileRecord.objects.filter(user=request.user, name=file_name, parent_folder=parent_obj).delete()
+            if os.path.exists(new_physical_path):
+                os.remove(new_physical_path)
 
             try:
                 shutil.copy2(existing_file.physical_path, new_physical_path)
@@ -174,21 +151,20 @@ class FileViewSet(viewsets.ModelViewSet):
                     is_folder=False,
                     file_md5=file_md5,
                     size=existing_file.size,
+                    # 直接更新元数据
                     file_obj=os.path.relpath(new_physical_path, settings.MEDIA_ROOT),
                     physical_path=new_physical_path
                 )
-                return Response({"status": "success", "msg": "秒传成功（副本已物理就绪）", "file_id": new_record.id})
+                return Response({"status": "success", "msg": "秒传成功", "file_id": new_record.id})
             except Exception as e:
-                print(f"物理拷贝失败: {e}")
+                pass  # 拷贝失败则转入常规上传
 
-        # --- 【常规逻辑：分片上传】 ---
-
-        file_obj = request.FILES.get('file')
-        if not file_obj:
+        # --- [4. 常规逻辑：分片上传写入临时文件] ---
+        file_chunk = request.FILES.get('file')
+        if not file_chunk:
             return Response({"error": "缺少分片文件"}, status=400)
 
-        # 维护上传会话
-        session, created = UploadSession.objects.get_or_create(
+        session, _ = UploadSession.objects.get_or_create(
             file_md5=file_md5,
             defaults={'total_size': total_size, 'user': request.user, 'file_name': file_name}
         )
@@ -197,46 +173,52 @@ class FileViewSet(viewsets.ModelViewSet):
         os.makedirs(temp_dir, exist_ok=True)
         temp_path = os.path.join(temp_dir, f"{file_md5}.part")
 
-        mode = 'rb+' if os.path.exists(temp_path) else 'wb'
-        with open(temp_path, mode) as f:
+        # 内存安全地写入分片
+        with open(temp_path, 'a+b' if offset > 0 else 'wb') as f:
             f.seek(offset)
-            f.write(file_obj.read())
+            f.write(file_chunk.read())
 
-        session.received_size += file_obj.size
+        session.received_size += file_chunk.size
         session.save()
 
-        # 检查合并
+        # --- [5. 最终合并：直接重命名 + 元数据登记] ---
         if session.received_size >= total_size:
-            # 最后的清理逻辑保持不变...
-            # (删除同名异 MD5 记录, 创建新记录, 移动文件, 清理 temp)
-            old_record = FileRecord.objects.filter(
-                user=request.user, name=file_name, parent_folder=parent_obj, is_folder=False
-            ).first()
-            if old_record:
-                if old_record.physical_path and os.path.exists(old_record.physical_path):
-                    os.remove(old_record.physical_path)
-                old_record.delete()
+            # 使用事务保证数据库与物理操作同步
+            with transaction.atomic():
+                # 1. 清理该路径下的旧同名记录/文件
+                old_record = FileRecord.objects.filter(
+                    user=request.user, name=file_name, parent_folder=parent_obj, is_folder=False
+                ).first()
+                if old_record:
+                    if old_record.physical_path and os.path.exists(old_record.physical_path):
+                        os.remove(old_record.physical_path)
+                    old_record.delete()
 
-            new_record = FileRecord.objects.create(
-                user=request.user,
-                name=file_name,
-                parent_folder=parent_obj,
-                is_folder=False,
-                file_md5=file_md5,
-                size=total_size
-            )
+                # 2. 构造最终存储路径
+                rel_dir = os.path.join('data', request.user.username, path_str)
+                abs_dir = os.path.join(settings.BASE_DIR, rel_dir)
+                os.makedirs(abs_dir, exist_ok=True)
+                final_abs_path = os.path.join(abs_dir, file_name)
 
-            with open(temp_path, 'rb') as f:
-                new_record.file_obj.save(file_name, ContentFile(f.read()), save=True)
+                # 3. 物理搬家：os.rename 是瞬时完成的，且不占内存
+                if os.path.exists(final_abs_path):
+                    os.remove(final_abs_path)
+                os.rename(temp_path, final_abs_path)
 
-            new_record.physical_path = new_record.file_obj.path
-            new_record.save()
+                # 4. 创建数据库记录并直接关联物理路径（不再使用 .save(File) 拷贝数据）
+                new_record = FileRecord.objects.create(
+                    user=request.user,
+                    name=file_name,
+                    parent_folder=parent_obj,
+                    is_folder=False,
+                    file_md5=file_md5,
+                    size=total_size,
+                    file_obj=os.path.relpath(final_abs_path, settings.MEDIA_ROOT),
+                    physical_path=final_abs_path
+                )
 
-            session.delete()
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-
-            return Response({"status": "success", "msg": "上传完成"})
+                session.delete()
+                return Response({"status": "success", "msg": "上传并合并完成", "file_id": new_record.id})
 
         return Response({
             "status": "uploading",
