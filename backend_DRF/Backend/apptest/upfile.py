@@ -58,7 +58,7 @@ with open(FILE_PATH, 'rb') as f:
             'offset': current_offset,  # 👈 必须传这个！
             'total_size': file_size,
             # 'path':'experiment/plasma_data',
-            'path': '',
+            'path': 'a',
             'chunk_size': len(chunk_data)
         }
 
