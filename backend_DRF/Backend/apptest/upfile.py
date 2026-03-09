@@ -26,7 +26,7 @@ CHUNK_SIZE = 1024 * 1024 * 5  # 每片 5MB
 BASE_URL = "http://127.0.0.1:8000/api/files/list/" # 注意你的 router 注册名是 list
 HEADERS = {"Authorization": "Token dba9832618cf68d2f9ce8787dfba82924af2fe1e"}
 # 修改你的上传脚本逻辑
-chunk_size = 1024 * 1024 * 10  # 5MB
+CHUNK_SIZE = 1024 * 1024 * 100  # 5MB
 file_size = os.path.getsize(FILE_PATH)
 file_md5 = calculate_file_md5(FILE_PATH)
 
@@ -57,6 +57,8 @@ with open(FILE_PATH, 'rb') as f:
             # 'chunk_index': chunk_index,
             'offset': current_offset,  # 👈 必须传这个！
             'total_size': file_size,
+            # 'path':'experiment/plasma_data',
+            'path': '',
             'chunk_size': len(chunk_data)
         }
 
