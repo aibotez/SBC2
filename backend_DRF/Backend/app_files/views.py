@@ -93,7 +93,7 @@ class FileViewSet(viewsets.ModelViewSet):
                 name=file_name,
                 file_md5=file_md5,
                 size=total_size,
-                parent=parent_folder,  # 填充 Parent folder
+                parent_folder=parent_folder,  # 填充 Parent folder
                 is_folder=False
             )
 
