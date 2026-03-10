@@ -200,7 +200,7 @@ if __name__ == "__main__":
 
     client = CloudClient(
         server="http://127.0.0.1:8000/",
-        token="153c3ec6dc4340b451a550a97a5269f06d71299b"
+        token="ec8f71c374befa66207ff50f826f8169738d8d81"
     )
 
     client.upload(
