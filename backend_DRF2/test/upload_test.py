@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 class CloudClient:
 
-    def __init__(self, server, token, chunk_size=1024*1024*10):
+    def __init__(self, server, token, chunk_size=1024*1024*5):
 
         self.server = server.rstrip("/") + "/"
         self.chunk_size = chunk_size
@@ -120,6 +120,9 @@ class CloudClient:
         print("sha256:", sha256)
         # 秒传检测
         res = self.check_instant(filepath, size, sha256, path)
+        if 'error' in res:
+            # print(res)
+            return res
         if res.get("instant"):
             print("秒传成功")
             return
@@ -215,11 +218,11 @@ if __name__ == "__main__":
     )
 
     client.upload(
-        filepath="D:/网络下载/easytier-linux-arm-v2.4.5.zip",
+        filepath="D:/网络下载/kodcloud Setup 1.0.6 (1).exe",
         path="/"      # 指定上传目录
     )
 
     # client.mkdir(
     #     path='/',
-    #     name='123'
+    #     name='test'
     # )

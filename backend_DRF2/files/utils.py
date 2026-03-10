@@ -45,6 +45,7 @@ def get_node_by_path(user, path):
             is_dir=True
         ).first()
         if not node:
-            raise Exception("path not found")
+            return -1
+            # raise Exception("path not found")
         parent = node
     return parent

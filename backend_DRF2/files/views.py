@@ -34,7 +34,12 @@ def check_file(request):
     filename = request.data["filename"]
     path = request.data.get("path", "/")
     # print(path,66)
+
     parent = get_node_by_path(request.user, path)
+    if parent==-1:
+        return JsonResponse({
+            "error": 'path error!'
+        })
     node = FileNode.objects.filter(
         sha256=sha256,
         size=size
@@ -189,7 +194,7 @@ def finish_upload(request):
     session = UploadSession.objects.get(upload_id=upload_id)
     # print(session)
     final_path = build_real_path(session)
-    
+
     shutil.move(session.temp_path, final_path)
     # temp_dir = os.path.join(
     #     settings.DATA_ROOT,
@@ -221,6 +226,7 @@ def finish_upload(request):
         sha256=session.sha256,
         mtime=mtime,
         is_dir=False,
+        parent=session.parent,
     )
     # shutil.rmtree(session.temp_path)
     session.delete()
