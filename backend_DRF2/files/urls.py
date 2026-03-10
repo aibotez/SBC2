@@ -8,6 +8,7 @@ from .views import (
     finish_upload,
     upload_status,
     mkdir,
+    list_files,
 )
 
 
@@ -21,5 +22,6 @@ urlpatterns = [
     path("upload/finish/", finish_upload),
     path("upload/status/", upload_status),
     path("files/mkdir/", mkdir),
+    path("files/list/", list_files),
 ]
 urlpatterns += router.urls

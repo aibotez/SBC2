@@ -227,7 +227,36 @@ def mkdir(request):
         "name": node.name
     })
 
-
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def list_files(request):
+    path = request.GET.get("path", "/")
+    try:
+        parent = get_node_by_path(request.user, path)
+    except Exception:
+        return JsonResponse({"error": "path not found"}, status=400)
+    nodes = FileNode.objects.filter(
+        owner=request.user,
+        parent=parent
+    )
+    folders = []
+    files = []
+    for n in nodes:
+        item = {
+            # "id": n.id,
+            "name": n.name
+        }
+        if n.is_dir:
+            folders.append(item)
+        else:
+            item["size"] = n.size
+            item["sha256"] = n.sha256
+            files.append(item)
+    return JsonResponse({
+        "path": path,
+        "folders": folders,
+        "files": files
+    })
 class FileNodeViewSet(viewsets.ModelViewSet):
     serializer_class = FileNodeSerializer
     permission_classes = [IsAuthenticated]
