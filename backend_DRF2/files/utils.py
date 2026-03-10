@@ -5,12 +5,12 @@ from django.conf import settings
 from .models import FileNode
 
 
-# def get_cur_path_abs()
 
 def get_user_root(user):
 
     path = os.path.join(
         settings.DATA_ROOT,
+        'user',
         user.username
     )
 

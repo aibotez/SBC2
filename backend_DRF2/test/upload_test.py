@@ -39,15 +39,17 @@ class CloudClient:
     # 上传接口
     # ------------------------
 
-    def check_instant(self, filename, size, sha256, path):
+    def check_instant(self, filepath, size, sha256, path):
 
         url = self.server + "api/upload/check/"
+        filename = os.path.basename(filepath)
 
         r = self.session.post(url, json={
             "filename": filename,
             "size": size,
             "sha256": sha256,
-            "path": path
+            "path": path,
+            "mtime": os.stat(filepath).st_mtime,
         })
 
         r.raise_for_status()
@@ -103,16 +105,13 @@ class CloudClient:
 
         r.raise_for_status()
 
-    def finish_upload(self, upload_id):
-
+    def finish_upload(self, filepath,upload_id):
         url = self.server + "api/upload/finish/"
-
         r = self.session.post(url, json={
-            "upload_id": upload_id
+            "upload_id": upload_id,
+            "mtime": os.stat(filepath).st_mtime
         })
-
         r.raise_for_status()
-
         return r.json()
 
     # ------------------------
@@ -123,41 +122,27 @@ class CloudClient:
 
         filename = os.path.basename(filepath)
         size = os.path.getsize(filepath)
-
         print("calculating sha256...")
-
         sha256 = self.sha256_file(filepath)
-
         print("sha256:", sha256)
-
         # 秒传检测
-        res = self.check_instant(filename, size, sha256, path)
-
+        res = self.check_instant(filepath, size, sha256, path)
         if res.get("instant"):
             print("秒传成功")
             return
-
         upload_id, total_chunks = self.create_upload(
             filename, size, sha256, path
         )
-
         print("upload id:", upload_id)
-
         uploaded = self.get_uploaded_chunks(upload_id)
-
         with open(filepath, "rb") as f:
-
             for i in tqdm(range(total_chunks), desc="upload"):
-
                 if i in uploaded:
                     f.seek(self.chunk_size, 1)
                     continue
-
                 chunk = f.read(self.chunk_size)
-
                 self.upload_chunk(upload_id, i, chunk)
-
-        self.finish_upload(upload_id)
+        self.finish_upload(filepath,upload_id)
 
         print("upload finished")
 
@@ -221,10 +206,10 @@ if __name__ == "__main__":
 
     client.upload(
         filepath="D:/网络下载/easytier-linux-arm-v2.4.5.zip",
-        path="/test/子目录/123/"      # 指定上传目录
+        path="/"      # 指定上传目录
     )
 
     # client.mkdir(
-    #     path='/test/子目录/',
+    #     path='/',
     #     name='123'
     # )

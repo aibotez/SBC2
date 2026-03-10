@@ -12,10 +12,10 @@ def link_or_copy(src, dst):
     if src == dst:
         # print(88888)
         return 'same'
+    if os.path.exists(dst):
+        os.remove(dst)
 
     os.makedirs(os.path.dirname(dst), exist_ok=True)
-
-
     try:
         os.link(src, dst)
         return "link"

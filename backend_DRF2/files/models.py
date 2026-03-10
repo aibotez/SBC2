@@ -21,6 +21,7 @@ class FileNode(models.Model):
         User,
         on_delete=models.CASCADE
     )
+    mtime = models.BigIntegerField()
     is_dir = models.BooleanField(default=False)
     size = models.BigIntegerField(default=0)
     sha256 = models.CharField(
@@ -54,12 +55,14 @@ class UploadSession(models.Model):
         default=uuid.uuid4,
         editable=False
     )
+    # id = models.BigAutoField(primary_key=True)
     parent = models.ForeignKey(
-        "self",
+        FileNode,
         null=True,
         blank=True,
         on_delete=models.CASCADE,
-        related_name="children"
+        related_name="upload_sessions",
+        # related_name="children"
     )
     owner = models.ForeignKey(
         User,

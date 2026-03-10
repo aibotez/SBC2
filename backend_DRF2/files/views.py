@@ -30,6 +30,7 @@ from .utils import get_node_by_path
 def check_file(request):
     sha256 = request.data["sha256"]
     size = request.data["size"]
+    mtime = int(request.data["mtime"])
     filename = request.data["filename"]
     path = request.data.get("path", "/")
     # print(path,66)
@@ -63,11 +64,13 @@ def check_file(request):
                 "instant": True,
                 "mode": mode
             })
-        FileNode.objects.create(
+        os.utime(dst, (mtime, mtime))
+        FileNode.objects.update_or_create(
             name=filename,
             parent=parent,
             owner=request.user,
             size=size,
+            mtime=mtime,
             sha256=sha256
         )
         return JsonResponse({
@@ -136,6 +139,7 @@ def upload_chunk(request):
 @permission_classes([IsAuthenticated])
 def finish_upload(request):
     upload_id = request.data["upload_id"]
+    mtime = int(request.data["mtime"])
     session = UploadSession.objects.get(id=upload_id)
     temp_dir = os.path.join(
         settings.DATA_ROOT,
@@ -157,11 +161,15 @@ def finish_upload(request):
             chunk_path = os.path.join(temp_dir, str(i))
             with open(chunk_path, "rb") as infile:
                 shutil.copyfileobj(infile, outfile)
+    os.utime(final_path, (mtime, mtime))
+
+
     FileNode.objects.create(
         name=session.filename,
         owner=request.user,
         size=session.file_size,
-        sha256=session.sha256
+        sha256=session.sha256,
+        mtime=mtime,
     )
     shutil.rmtree(temp_dir)
     session.delete()
@@ -199,11 +207,8 @@ def mkdir(request):
         name=name,
         is_dir=True
     ).exists()
-
     if exists:
         return JsonResponse({"error": "folder exists"}, status=400)
-
-
     # ---------- 新增物理目录 ----------
     disk_path = os.path.join(
         settings.DATA_ROOT,
@@ -214,11 +219,15 @@ def mkdir(request):
     )
     os.makedirs(disk_path, exist_ok=True)
 
+    stat = os.stat(disk_path)
+    mtime = int(stat.st_mtime)
+
 
     node = FileNode.objects.create(
         owner=request.user,
         parent=parent,
         name=name,
+        mtime=mtime,
         is_dir=True
     )
 
@@ -244,7 +253,8 @@ def list_files(request):
     for n in nodes:
         item = {
             # "id": n.id,
-            "name": n.name
+            "name": n.name,
+            "mtime":n.mtime,
         }
         if n.is_dir:
             folders.append(item)
@@ -255,7 +265,8 @@ def list_files(request):
     return JsonResponse({
         "path": path,
         "folders": folders,
-        "files": files
+        "files": files,
+
     })
 class FileNodeViewSet(viewsets.ModelViewSet):
     serializer_class = FileNodeSerializer

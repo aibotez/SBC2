@@ -15,7 +15,8 @@ class FileNodeAdmin(admin.ModelAdmin):
         "is_dir",
         "size",
         "created_at",
-        "parent"
+        "parent",
+        "mtime",
     )
 
 @admin.register(UploadSession)
