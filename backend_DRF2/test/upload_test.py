@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 class CloudClient:
 
-    def __init__(self, server, token, chunk_size=1024):
+    def __init__(self, server, token, chunk_size=1024*1024*10):
 
         self.server = server.rstrip("/") + "/"
         self.chunk_size = chunk_size
@@ -88,22 +88,15 @@ class CloudClient:
 
         return set(r.json()["uploaded_chunks"])
 
-    def upload_chunk(self, upload_id, index, chunk):
-
-        url = self.server + "api/upload/chunk/"
-
-        files = {
-            "chunk": chunk
-        }
-
-        data = {
-            "upload_id": upload_id,
-            "chunk_index": index
-        }
-
-        r = self.session.post(url, data=data, files=files)
-
+    def upload_chunk(self, upload_id, offset, chunk_bytes):
+        files = {"file": ("chunk", chunk_bytes)}
+        r = self.session.post(
+            self.server + "api/upload/chunk/",
+            data={"upload_id": upload_id, "offset": offset},
+            files=files
+        )
         r.raise_for_status()
+        return r.json()  # {"offset": new_offset}
 
     def finish_upload(self, filepath,upload_id):
         url = self.server + "api/upload/finish/"
@@ -130,21 +123,38 @@ class CloudClient:
         if res.get("instant"):
             print("秒传成功")
             return
-        upload_id, total_chunks = self.create_upload(
-            filename, size, sha256, path
-        )
-        print("upload id:", upload_id)
-        uploaded = self.get_uploaded_chunks(upload_id)
-        with open(filepath, "rb") as f:
-            for i in tqdm(range(total_chunks), desc="upload"):
-                if i in uploaded:
-                    f.seek(self.chunk_size, 1)
-                    continue
-                chunk = f.read(self.chunk_size)
-                self.upload_chunk(upload_id, i, chunk)
-        self.finish_upload(filepath,upload_id)
+        if 'upload_id' in res:
 
-        print("upload finished")
+            upload_id = res["upload_id"]
+            offset = res["offset"]
+        else:
+            offset = 0
+            upload_id, total_chunks = self.create_upload(
+                filename, size, sha256, path
+            )
+        print(f"upload_id: {upload_id}, resume offset: {offset}/{size}")
+        with open(filepath, "rb") as f:
+            f.seek(offset)
+            while offset < size:
+                chunk = f.read(self.chunk_size)
+                result = self.upload_chunk(upload_id, offset, chunk)
+                offset = result["offset"]
+                print(f"Uploaded {offset}/{size} bytes")
+
+        finish_result = self.finish_upload(filepath,upload_id)
+        print("Upload finished:", finish_result)
+
+        # uploaded = self.get_uploaded_chunks(upload_id)
+        # with open(filepath, "rb") as f:
+        #     for i in tqdm(range(total_chunks), desc="upload"):
+        #         if i in uploaded:
+        #             f.seek(self.chunk_size, 1)
+        #             continue
+        #         chunk = f.read(self.chunk_size)
+        #         self.upload_chunk(upload_id, i, chunk)
+        # self.finish_upload(filepath,upload_id)
+
+        # print("upload finished")
 
     # ------------------------
     # 未来扩展接口

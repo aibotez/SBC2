@@ -21,7 +21,7 @@ class FileNode(models.Model):
         User,
         on_delete=models.CASCADE
     )
-    mtime = models.BigIntegerField()
+    mtime = models.BigIntegerField(null=True)
     is_dir = models.BooleanField(default=False)
     size = models.BigIntegerField(default=0)
     sha256 = models.CharField(
@@ -68,8 +68,8 @@ class UploadSession(models.Model):
         User,
         on_delete=models.CASCADE
     )
-    filename = models.CharField(max_length=255)
-    file_size = models.BigIntegerField()
+    name = models.CharField(max_length=255)
+    size = models.BigIntegerField()
     sha256 = models.CharField(max_length=64)
     chunk_size = models.IntegerField()
     total_chunks = models.IntegerField()
@@ -79,4 +79,5 @@ class UploadSession(models.Model):
     uploaded = models.BigIntegerField(default=0)
     temp_path = models.CharField(max_length=500)
     created = models.DateTimeField(auto_now_add=True)
+    mtime = models.BigIntegerField(null=True)
 

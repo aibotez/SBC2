@@ -23,7 +23,7 @@ class FileNodeAdmin(admin.ModelAdmin):
 class UploadSessionAdmin(admin.ModelAdmin):
     list_display = (
         "id",
-        "filename",
+        "name",
         "owner",
         "chunk_size",
         "total_chunks",

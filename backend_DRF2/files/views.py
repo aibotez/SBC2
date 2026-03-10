@@ -82,9 +82,9 @@ def check_file(request):
     session = UploadSession.objects.filter(
         owner=request.user,
         parent=parent,
-        filename=filename,
+        name=filename,
         size=size,
-        mtime=mtime
+        sha256=sha256
     ).first()
 
     if session:
@@ -116,8 +116,8 @@ def create_upload(request):
     total_chunks = (size + chunk_size - 1) // chunk_size
     session = UploadSession.objects.create(
         owner=request.user,
-        filename=filename,
-        file_size=size,
+        name=filename,
+        size=size,
         sha256=sha256,
         chunk_size=chunk_size,
         total_chunks=total_chunks,
@@ -137,14 +137,17 @@ def create_upload(request):
 @permission_classes([IsAuthenticated])
 def upload_chunk(request):
     upload_id = request.data["upload_id"]
-    chunk_index = int(request.data["chunk_index"])
+    # chunk_index = int(request.data["chunk_index"])
     offset = int(request.POST["offset"])
     # file = request.FILES["chunk"]
     chunk = request.FILES["file"]
     session = UploadSession.objects.get(upload_id=upload_id)
 
+    temp_path = os.path.join(settings.DATA_ROOT,"temp")
+    if not os.path.isdir(temp_path):
+        os.makedirs(temp_path)
 
-    with open(session.temp_path, "r+b" if os.path.exists(session.temp_path) else "wb") as f:
+    with open(session.temp_path, "a+b") as f:
         f.seek(offset)
         for c in chunk.chunks():
             f.write(c)
@@ -184,7 +187,9 @@ def finish_upload(request):
     upload_id = request.data["upload_id"]
     mtime = int(request.data["mtime"])
     session = UploadSession.objects.get(upload_id=upload_id)
-    final_path = build_real_path(session.parent, session.filename)
+    # print(session)
+    final_path = build_real_path(session)
+    
     shutil.move(session.temp_path, final_path)
     # temp_dir = os.path.join(
     #     settings.DATA_ROOT,
@@ -210,9 +215,9 @@ def finish_upload(request):
 
 
     FileNode.objects.create(
-        name=session.filename,
+        name=session.name,
         owner=request.user,
-        size=session.file_size,
+        size=session.size,
         sha256=session.sha256,
         mtime=mtime,
         is_dir=False,
