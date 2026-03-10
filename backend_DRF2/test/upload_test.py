@@ -219,7 +219,7 @@ if __name__ == "__main__":
 
     client.upload(
         filepath="D:/网络下载/kodcloud Setup 1.0.6 (1).exe",
-        path="/"      # 指定上传目录
+        path="test/"      # 指定上传目录
     )
 
     # client.mkdir(

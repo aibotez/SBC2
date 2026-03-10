@@ -196,6 +196,17 @@ def finish_upload(request):
     final_path = build_real_path(session)
 
     shutil.move(session.temp_path, final_path)
+
+
+    user_dir = os.path.join(
+        settings.DATA_ROOT,
+        'user',
+        request.user.username
+    )
+
+    path = final_path.replace(user_dir,'').replace(session.name,'').replace('\\','/')
+    # print(path)
+    parent = get_node_by_path(request.user, path)
     # temp_dir = os.path.join(
     #     settings.DATA_ROOT,
     #     "temp",
@@ -226,7 +237,7 @@ def finish_upload(request):
         sha256=session.sha256,
         mtime=mtime,
         is_dir=False,
-        parent=session.parent,
+        parent=parent,
     )
     # shutil.rmtree(session.temp_path)
     session.delete()
