@@ -177,6 +177,57 @@ def upload_status(request):
         "uploaded_chunks": uploaded
     })
 
+
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def mkdir(request):
+
+    path = request.data.get("path", "/")
+    name = request.data.get("name")
+
+    if not name:
+        return JsonResponse({"error": "name required"}, status=400)
+
+    parent = get_node_by_path(request.user, path)
+
+    # 防止重复
+    exists = FileNode.objects.filter(
+        owner=request.user,
+        parent=parent,
+        name=name,
+        is_dir=True
+    ).exists()
+
+    if exists:
+        return JsonResponse({"error": "folder exists"}, status=400)
+
+
+    # ---------- 新增物理目录 ----------
+    disk_path = os.path.join(
+        settings.DATA_ROOT,
+        'user',
+        request.user.username,
+        path.strip("/"),
+        name
+    )
+    os.makedirs(disk_path, exist_ok=True)
+
+
+    node = FileNode.objects.create(
+        owner=request.user,
+        parent=parent,
+        name=name,
+        is_dir=True
+    )
+
+    return JsonResponse({
+        "id": node.id,
+        "name": node.name
+    })
+
+
 class FileNodeViewSet(viewsets.ModelViewSet):
     serializer_class = FileNodeSerializer
     permission_classes = [IsAuthenticated]

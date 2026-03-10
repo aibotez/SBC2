@@ -15,6 +15,7 @@ def link_or_copy(src, dst):
 
     os.makedirs(os.path.dirname(dst), exist_ok=True)
 
+
     try:
         os.link(src, dst)
         return "link"

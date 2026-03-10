@@ -6,7 +6,8 @@ from .views import (
     create_upload,
     upload_chunk,
     finish_upload,
-    upload_status
+    upload_status,
+    mkdir,
 )
 
 
@@ -19,5 +20,6 @@ urlpatterns = [
     path("upload/chunk/", upload_chunk),
     path("upload/finish/", finish_upload),
     path("upload/status/", upload_status),
+    path("files/mkdir/", mkdir),
 ]
 urlpatterns += router.urls

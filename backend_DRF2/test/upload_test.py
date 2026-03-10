@@ -51,6 +51,7 @@ class CloudClient:
         })
 
         r.raise_for_status()
+        print(r.json())
 
         return r.json()
 
@@ -164,6 +165,21 @@ class CloudClient:
     # 未来扩展接口
     # ------------------------
 
+    def mkdir(self, path, name):
+
+        url = self.server + "api/files/mkdir/"
+
+        r = self.session.post(url, json={
+            "path": path,
+            "name": name
+        })
+        print("status:", r.status_code)
+        print("response:", r.text)
+
+        r.raise_for_status()
+
+        return r.json()
+
     def list_dir(self, path="/"):
 
         url = self.server + "api/files/"
@@ -205,5 +221,10 @@ if __name__ == "__main__":
 
     client.upload(
         filepath="D:/网络下载/easytier-linux-arm-v2.4.5.zip",
-        path="/"      # 指定上传目录
+        path="/test/子目录/123/"      # 指定上传目录
     )
+
+    # client.mkdir(
+    #     path='/test/子目录/',
+    #     name='123'
+    # )
