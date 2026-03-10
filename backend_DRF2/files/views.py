@@ -77,6 +77,21 @@ def check_file(request):
             "instant": True,
             "mode": mode
         })
+    # cach = FileNode.objects.filter(sha256=sha256,file_size=size).first()
+    # if cach:
+    session = UploadSession.objects.filter(
+        owner=request.user,
+        parent=parent,
+        filename=filename,
+        size=size,
+        mtime=mtime
+    ).first()
+
+    if session:
+        return JsonResponse({
+            "upload_id": session.upload_id,
+            "offset": session.uploaded
+        })
 
     return JsonResponse({
         "instant": False
@@ -84,6 +99,14 @@ def check_file(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_upload(request):
+    import uuid
+    upload_id = uuid.uuid4().hex
+    temp_path = os.path.join(
+        settings.DATA_ROOT,
+        "temp",
+        str(upload_id)
+    )
+
     filename = request.data["filename"]
     size = int(request.data["size"])
     sha256 = request.data["sha256"]
@@ -98,13 +121,16 @@ def create_upload(request):
         sha256=sha256,
         chunk_size=chunk_size,
         total_chunks=total_chunks,
-        parent=parent
+        parent=parent,
+        upload_id=upload_id,
+        temp_path=temp_path,
     )
 
     return JsonResponse({
-        "upload_id": str(session.id),
+        "upload_id": str(upload_id),
         "chunk_size": chunk_size,
-        "total_chunks": total_chunks
+        "total_chunks": total_chunks,
+        "offset": 0
     })
 
 @api_view(["POST"])
@@ -112,26 +138,43 @@ def create_upload(request):
 def upload_chunk(request):
     upload_id = request.data["upload_id"]
     chunk_index = int(request.data["chunk_index"])
-    file = request.FILES["chunk"]
-    session = UploadSession.objects.get(id=upload_id)
-    temp_dir = os.path.join(
-        settings.DATA_ROOT,
-        "temp",
-        str(upload_id)
-    )
-    os.makedirs(temp_dir, exist_ok=True)
-    chunk_path = os.path.join(
-        temp_dir,
-        str(chunk_index)
-    )
-    with open(chunk_path, "wb") as f:
-        for c in file.chunks():
+    offset = int(request.POST["offset"])
+    # file = request.FILES["chunk"]
+    chunk = request.FILES["file"]
+    session = UploadSession.objects.get(upload_id=upload_id)
+
+
+    with open(session.temp_path, "r+b" if os.path.exists(session.temp_path) else "wb") as f:
+        f.seek(offset)
+        for c in chunk.chunks():
             f.write(c)
-    uploaded = session.uploaded_chunks
-    uploaded.append(chunk_index)
-    session.uploaded_chunks = uploaded
-    session.save()
-    return JsonResponse({"ok": True})
+
+    session.uploaded = offset + chunk.size
+    session.save(update_fields=["uploaded"])
+
+    return JsonResponse({
+        "offset": session.uploaded
+    })
+
+
+    # temp_dir = os.path.join(
+    #     settings.DATA_ROOT,
+    #     "temp",
+    #     str(upload_id)
+    # )
+    # os.makedirs(temp_dir, exist_ok=True)
+    # chunk_path = os.path.join(
+    #     temp_dir,
+    #     str(chunk_index)
+    # )
+    # with open(chunk_path, "wb") as f:
+    #     for c in file.chunks():
+    #         f.write(c)
+    # uploaded = session.uploaded_chunks
+    # uploaded.append(chunk_index)
+    # session.uploaded_chunks = uploaded
+    # session.save()
+    # return JsonResponse({"ok": True})
 
 
 
@@ -140,27 +183,29 @@ def upload_chunk(request):
 def finish_upload(request):
     upload_id = request.data["upload_id"]
     mtime = int(request.data["mtime"])
-    session = UploadSession.objects.get(id=upload_id)
-    temp_dir = os.path.join(
-        settings.DATA_ROOT,
-        "temp",
-        str(upload_id)
-    )
-    user_dir = os.path.join(
-        settings.DATA_ROOT,
-        'user',
-        request.user.username
-    )
-    os.makedirs(user_dir, exist_ok=True)
-    final_path = os.path.join(
-        user_dir,
-        session.filename
-    )
-    with open(final_path, "wb") as outfile:
-        for i in range(session.total_chunks):
-            chunk_path = os.path.join(temp_dir, str(i))
-            with open(chunk_path, "rb") as infile:
-                shutil.copyfileobj(infile, outfile)
+    session = UploadSession.objects.get(upload_id=upload_id)
+    final_path = build_real_path(session.parent, session.filename)
+    shutil.move(session.temp_path, final_path)
+    # temp_dir = os.path.join(
+    #     settings.DATA_ROOT,
+    #     "temp",
+    #     str(upload_id)
+    # )
+    # user_dir = os.path.join(
+    #     settings.DATA_ROOT,
+    #     'user',
+    #     request.user.username
+    # )
+    # os.makedirs(user_dir, exist_ok=True)
+    # final_path = os.path.join(
+    #     user_dir,
+    #     session.filename
+    # )
+    # with open(final_path, "wb") as outfile:
+    #     for i in range(session.total_chunks):
+    #         chunk_path = os.path.join(temp_dir, str(i))
+    #         with open(chunk_path, "rb") as infile:
+    #             shutil.copyfileobj(infile, outfile)
     os.utime(final_path, (mtime, mtime))
 
 
@@ -170,8 +215,9 @@ def finish_upload(request):
         size=session.file_size,
         sha256=session.sha256,
         mtime=mtime,
+        is_dir=False,
     )
-    shutil.rmtree(temp_dir)
+    # shutil.rmtree(session.temp_path)
     session.delete()
     return JsonResponse({"success": True})
 

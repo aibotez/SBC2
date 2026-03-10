@@ -50,11 +50,11 @@ class FileNode(models.Model):
 
 
 class UploadSession(models.Model):
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
-    )
+    # id = models.UUIDField(
+    #     primary_key=True,
+    #     default=uuid.uuid4,
+    #     editable=False
+    # )
     # id = models.BigAutoField(primary_key=True)
     parent = models.ForeignKey(
         FileNode,
@@ -75,3 +75,8 @@ class UploadSession(models.Model):
     total_chunks = models.IntegerField()
     uploaded_chunks = models.JSONField(default=list)
     created_at = models.DateTimeField(auto_now_add=True)
+    upload_id = models.CharField(max_length=64, unique=True)
+    uploaded = models.BigIntegerField(default=0)
+    temp_path = models.CharField(max_length=500)
+    created = models.DateTimeField(auto_now_add=True)
+

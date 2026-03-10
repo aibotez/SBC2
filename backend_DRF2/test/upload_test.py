@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 class CloudClient:
 
-    def __init__(self, server, token, chunk_size=4 * 1024 * 1024):
+    def __init__(self, server, token, chunk_size=1024):
 
         self.server = server.rstrip("/") + "/"
         self.chunk_size = chunk_size
