@@ -305,10 +305,10 @@ def mkdir(request):
     # path = request.data.get("path", "/")
     # name = request.data.get("name")
 
-    print(parent_id,path)
+    # print(parent_id,path)
 
-    if not name:
-        return JsonResponse({"error": "name required"}, status=400)
+    # if not name:
+    #     return JsonResponse({"error": "name required"}, status=400)
 
     # parent = get_node_by_path(request.user, path)
     parent = get_node(request.user, path=path, parent_id=parent_id)
@@ -357,11 +357,14 @@ def mkdir(request):
 def list_files(request):
     serializer = ListSerializer(data=request.query_params)
     serializer.is_valid(raise_exception=True)
-    parent_id = serializer.validated_data.get("parent_id", None)
+    id = serializer.validated_data.get("id", None)
+
+    # print(2)
     path = serializer.validated_data.get("path")
+    # print(path,parent_id)
 
     # print(path,parent_id)
-    parent = get_node(request.user, path=path, parent_id=parent_id)
+    parent = get_node(request.user, path=path,id=id)
 
 
 

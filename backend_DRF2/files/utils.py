@@ -56,18 +56,22 @@ def get_node_by_path(user, path):
         parent = node
     return parent
 
-def get_node(user,path=None,parent_id=None):
+def get_node(user,path=None,id=None):
 
 
     try:
-        if parent_id:
+        if id:
             parent = FileNode.objects.filter(
-                id=parent_id,
+                id=id,
                 owner=user,
                 is_dir=True
             ).first()
-
+            return parent
+        elif path:
+            parent = get_node_by_path(user, path)
+            return parent
         else:
+            path='/'
             parent = get_node_by_path(user, path)
     except:
         parent=-1
