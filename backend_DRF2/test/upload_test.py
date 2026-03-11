@@ -9,7 +9,7 @@ class CloudClient:
 
     def __init__(self, server, token, chunk_size=1024*1024*5):
         self.server = server.rstrip("/") + "/"
-        self.parent_id=None
+        self.parent_id=11
         self.chunk_size = chunk_size
         self.session = requests.Session()
         self.session.headers.update({
@@ -192,8 +192,8 @@ if __name__ == "__main__":
     )
 
     client.upload(
-        filepath="D:/网络下载/kodcloud Setup 1.0.6 (1).exe",
-        path="test/"      # 指定上传目录
+        filepath="D:/网络下载/青年科学基金项目（C类）-正文-2026.doc",
+        path="/est/"      # 指定上传目录
     )
 
     # client.mkdir(

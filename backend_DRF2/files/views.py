@@ -31,15 +31,22 @@ from .utils import get_node_by_path,get_node
 def getnode(request,post=None,get=None):
     path = None
     if get:
+        # datas={}
         datas=request.GET
+        # for k,v in pars:
+        #     datas[k] = v
     elif post:
-        datas = request.POST
+        # print(request.data)
+        datas = request.data
 
+    # print(datas)
     parent_id = None
     if 'parent_id' in datas:
-        parent_id = int(datas.get('parent_id'))
+        parent_id = datas['parent_id']
+        # print(parent_id)
+        # print(parent_id==None)
     elif 'path'in request.GET:
-        path = datas.get("path", "/")
+        path = datas["path"].replace('\\','/')
     else:
         path = '/'
     parent = get_node(request.user, path=path,parent_id=parent_id)
@@ -52,10 +59,12 @@ def check_file(request):
     size = request.data["size"]
     mtime = int(request.data["mtime"])
     filename = request.data["filename"]
-    path = request.data.get("path", "/")
+    # path = request.data.get("path", "/")
     # print(path,66)
 
-    parent = get_node_by_path(request.user, path)
+    parent = getnode(request, post=1)
+
+    # parent = get_node_by_path(request.user, path)
     if parent==-1:
         return JsonResponse({
             "error": 'path error!'
@@ -135,8 +144,9 @@ def create_upload(request):
     filename = request.data["filename"]
     size = int(request.data["size"])
     sha256 = request.data["sha256"]
-    path = request.data.get("path", "/")
-    parent = get_node_by_path(request.user, path)
+    # path = request.data.get("path", "/")
+    parent = getnode(request, post=1)
+    # parent = get_node_by_path(request.user, path)
     chunk_size = int(request.data["chunk_size"])
     total_chunks = (size + chunk_size - 1) // chunk_size
     session = UploadSession.objects.create(
@@ -224,9 +234,10 @@ def finish_upload(request):
         request.user.username
     )
 
-    path = final_path.replace(user_dir,'').replace(session.name,'').replace('\\','/')
+    # path = final_path.replace(user_dir,'').replace(session.name,'').replace('\\','/')
     # print(path)
-    parent = get_node_by_path(request.user, path)
+    parent = getnode(request, post=1)
+    # parent = get_node_by_path(request.user, path)
     # temp_dir = os.path.join(
     #     settings.DATA_ROOT,
     #     "temp",
