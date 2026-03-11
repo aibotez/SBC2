@@ -199,7 +199,7 @@ if __name__ == "__main__":
 
     client.mkdir(
         path='/',
-        name='test5'
+        name=''
     )
     # res = client.list_dir(path="/", parent_id=None)
     # print(res)

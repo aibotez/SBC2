@@ -305,10 +305,10 @@ def mkdir(request):
     # path = request.data.get("path", "/")
     # name = request.data.get("name")
 
-    print(parent_id,path)
+    # print(parent_id,path)
 
-    if not name:
-        return JsonResponse({"error": "name required"}, status=400)
+    # if not name:
+    #     return JsonResponse({"error": "name required"}, status=400)
 
     # parent = get_node_by_path(request.user, path)
     parent = get_node(request.user, path=path, parent_id=parent_id)
