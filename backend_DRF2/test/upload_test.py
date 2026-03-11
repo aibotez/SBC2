@@ -161,12 +161,13 @@ class CloudClient:
         r.raise_for_status()
         return r.json()
 
-    def list_dir(self, path="/"):
-        url = self.server + "api/files/"
+    def list_dir(self, path="/",parent_id=None):
+        url = self.server + "api/files/list/"
         r = self.session.get(url, params={
             "path": path,
-            "parent_id": self.parent_id,
+            "parent_id": parent_id,
         })
+        self.parent_id = parent_id
         r.raise_for_status()
         return r.json()
 
@@ -191,12 +192,14 @@ if __name__ == "__main__":
         token="ec8f71c374befa66207ff50f826f8169738d8d81"
     )
 
-    client.upload(
-        filepath="D:/网络下载/青年科学基金项目（C类）-正文-2026.doc",
-        path="/est/"      # 指定上传目录
-    )
+    # client.upload(
+    #     filepath="D:/网络下载/青年科学基金项目（C类）-正文-2026.doc",
+    #     path="/est/"      # 指定上传目录
+    # )
 
     # client.mkdir(
     #     path='/',
     #     name='test'
     # )
+    res = client.list_dir(path="/", parent_id=None)
+    print(res)

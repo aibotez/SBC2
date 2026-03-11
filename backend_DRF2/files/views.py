@@ -2,10 +2,11 @@ from django.shortcuts import render
 
 # Create your views here.
 
+from rest_framework.response import Response
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from .models import FileNode
-from .serializers import FileNodeSerializer
+from .serializers import FileNodeSerializer,ListSerializer
 
 
 import os
@@ -51,6 +52,10 @@ def getnode(request,post=None,get=None):
         path = '/'
     parent = get_node(request.user, path=path,parent_id=parent_id)
     return parent
+
+
+
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -338,16 +343,17 @@ def mkdir(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def list_files(request):
-    # parent_id = None
-    # if 'parent_id' in request.GET:
-    #     parent_id = request.GET.get('parent_id')
-    # elif 'path'in request.GET:
-    #     path = request.GET.get("path", "/")
-    # else:
-    #     path = '/'
-    # parent = get_node(request.user, path=path,parent_id=parent_id)
+    serializer = ListSerializer(data=request.query_params)
+    serializer.is_valid(raise_exception=True)
+    parent_id = serializer.validated_data.get("parent_id", None)
+    path = serializer.validated_data.get("path")
 
-    parent = getnode(request, get=1)
+    # print(path,parent_id)
+    parent = get_node(request.user, path=path, parent_id=parent_id)
+
+
+
+    # parent = getnode(request, get=1)
     if parent==-1:
         return JsonResponse({"error": "path not found"}, status=400)
 
@@ -355,6 +361,9 @@ def list_files(request):
         owner=request.user,
         parent=parent
     )
+    data = FileNodeSerializer(nodes, many=True).data
+    return Response(data)
+
     folders = []
     files = []
     for n in nodes:

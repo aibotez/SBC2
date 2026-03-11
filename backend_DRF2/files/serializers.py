@@ -4,8 +4,27 @@ class FileNodeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FileNode
-        fields = "__all__"
+        fields = [
+            "parent_id",
+            "name",
+            "is_dir",
+            # "parent",
+            "size",
+            "sha256",
+            "created_at",
+            'mtime'
+            # "updated_at"
+        ]
+
+    # class Meta:
+    #     model = FileNode
+    #     fields = "__all__"
 
 
-class UploadSerializer(serializers.Serializer):
+# class UploadSerializer(serializers.Serializer):
+#     parent_id = serializers.IntegerField(required=False, allow_null=True)
+
+class ListSerializer(serializers.Serializer):
+
     parent_id = serializers.IntegerField(required=False, allow_null=True)
+    path = serializers.CharField(required=False, allow_blank=True)
