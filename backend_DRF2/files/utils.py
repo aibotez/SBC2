@@ -38,12 +38,18 @@ def get_node_by_path(user, path):
     parts = path.split("/")
     parent = None
     for name in parts:
-        node = FileNode.objects.filter(
+        node = FileNode.objects.get(
             owner=user,
             parent=parent,
             name=name,
             is_dir=True
-        ).first()
+        )
+        # node = FileNode.objects.filter(
+        #     owner=user,
+        #     parent=parent,
+        #     name=name,
+        #     is_dir=True
+        # ).first()
         if not node:
             return -1
             # raise Exception("path not found")

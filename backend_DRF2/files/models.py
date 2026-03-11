@@ -39,10 +39,19 @@ class FileNode(models.Model):
         blank=True
     )
     created_at = models.DateTimeField(auto_now_add=True)
+
     class Meta:
         indexes = [
             models.Index(fields=["owner", "parent"]),
+            models.Index(fields=["owner", "parent", "name"]),
             models.Index(fields=["sha256"]),
+        ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner", "parent", "name"],
+                name="unique_file_in_directory"
+            )
         ]
 
     def __str__(self):

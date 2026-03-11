@@ -10,6 +10,7 @@ from .models import FileNode,UploadSession
 class FileNodeAdmin(admin.ModelAdmin):
     list_display = (
         "id",
+        "parent_id",
         "name",
         "owner",
         "is_dir",
