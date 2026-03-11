@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from .models import FileNode
-from .serializers import FileNodeSerializer,ListSerializer
+from .serializers import FileNodeSerializer,ListSerializer,MkdirSerializer
 
 
 import os
@@ -296,13 +296,22 @@ def upload_status(request):
 @permission_classes([IsAuthenticated])
 def mkdir(request):
 
-    path = request.data.get("path", "/")
-    name = request.data.get("name")
+    serializer = MkdirSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    name = serializer.validated_data["name"]
+    parent_id = serializer.validated_data.get("parent_id")
+    path = serializer.validated_data.get("path")
+
+    # path = request.data.get("path", "/")
+    # name = request.data.get("name")
+
+    print(parent_id,path)
 
     if not name:
         return JsonResponse({"error": "name required"}, status=400)
 
-    parent = get_node_by_path(request.user, path)
+    # parent = get_node_by_path(request.user, path)
+    parent = get_node(request.user, path=path, parent_id=parent_id)
 
     # 防止重复
     exists = FileNode.objects.filter(
@@ -335,10 +344,13 @@ def mkdir(request):
         is_dir=True
     )
 
-    return JsonResponse({
-        "id": node.id,
-        "name": node.name
-    })
+    return Response(FileNodeSerializer(node).data)
+
+
+    # return JsonResponse({
+    #     "id": node.id,
+    #     "name": node.name
+    # })
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])

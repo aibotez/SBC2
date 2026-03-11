@@ -149,11 +149,11 @@ class CloudClient:
     # 未来扩展接口
     # ------------------------
 
-    def mkdir(self, path, name):
+    def mkdir(self, path, name,parent_id=None):
         url = self.server + "api/files/mkdir/"
         r = self.session.post(url, json={
             "path": path,
-            "parent_id": self.parent_id,
+            "parent_id": parent_id,
             "name": name
         })
         print("status:", r.status_code)
@@ -197,9 +197,9 @@ if __name__ == "__main__":
     #     path="/est/"      # 指定上传目录
     # )
 
-    # client.mkdir(
-    #     path='/',
-    #     name='test'
-    # )
-    res = client.list_dir(path="/", parent_id=None)
-    print(res)
+    client.mkdir(
+        path='/',
+        name='test5'
+    )
+    # res = client.list_dir(path="/", parent_id=None)
+    # print(res)

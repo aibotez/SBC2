@@ -28,3 +28,8 @@ class ListSerializer(serializers.Serializer):
 
     parent_id = serializers.IntegerField(required=False, allow_null=True)
     path = serializers.CharField(required=False, allow_blank=True)
+
+class MkdirSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=255)
+    parent_id = serializers.IntegerField(required=False, allow_null=True)
+    path = serializers.CharField(required=False, allow_blank=True)
