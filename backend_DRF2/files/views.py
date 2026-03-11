@@ -22,8 +22,28 @@ from .models import FileNode, UploadSession
 
 from .utils import build_real_path
 from .storage import link_or_copy
-from .utils import get_node_by_path
+from .utils import get_node_by_path,get_node
 
+
+
+
+
+def getnode(request,post=None,get=None):
+    path = None
+    if get:
+        datas=request.GET
+    elif post:
+        datas = request.POST
+
+    parent_id = None
+    if 'parent_id' in datas:
+        parent_id = int(datas.get('parent_id'))
+    elif 'path'in request.GET:
+        path = datas.get("path", "/")
+    else:
+        path = '/'
+    parent = get_node(request.user, path=path,parent_id=parent_id)
+    return parent
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -307,11 +327,19 @@ def mkdir(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def list_files(request):
-    path = request.GET.get("path", "/")
-    try:
-        parent = get_node_by_path(request.user, path)
-    except Exception:
+    # parent_id = None
+    # if 'parent_id' in request.GET:
+    #     parent_id = request.GET.get('parent_id')
+    # elif 'path'in request.GET:
+    #     path = request.GET.get("path", "/")
+    # else:
+    #     path = '/'
+    # parent = get_node(request.user, path=path,parent_id=parent_id)
+
+    parent = getnode(request, get=1)
+    if parent==-1:
         return JsonResponse({"error": "path not found"}, status=400)
+
     nodes = FileNode.objects.filter(
         owner=request.user,
         parent=parent
@@ -323,6 +351,7 @@ def list_files(request):
             # "id": n.id,
             "name": n.name,
             "mtime":n.mtime,
+            'parent_id':n.parent_id
         }
         if n.is_dir:
             folders.append(item)
@@ -331,7 +360,7 @@ def list_files(request):
             item["sha256"] = n.sha256
             files.append(item)
     return JsonResponse({
-        "path": path,
+        # "path": path,
         "folders": folders,
         "files": files,
 

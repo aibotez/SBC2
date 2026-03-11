@@ -55,3 +55,21 @@ def get_node_by_path(user, path):
             # raise Exception("path not found")
         parent = node
     return parent
+
+def get_node(user,path=None,parent_id=None):
+
+
+    try:
+        if parent_id:
+            parent = FileNode.objects.filter(
+                id=parent_id,
+                owner=user,
+                is_dir=True
+            ).first()
+
+        else:
+            parent = get_node_by_path(user, path)
+    except:
+        parent=-1
+
+    return parent

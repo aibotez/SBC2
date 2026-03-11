@@ -8,12 +8,10 @@ from tqdm import tqdm
 class CloudClient:
 
     def __init__(self, server, token, chunk_size=1024*1024*5):
-
         self.server = server.rstrip("/") + "/"
+        self.parent_id=None
         self.chunk_size = chunk_size
-
         self.session = requests.Session()
-
         self.session.headers.update({
             "Authorization": f"Token {token}"
         })
@@ -23,16 +21,13 @@ class CloudClient:
     # ------------------------
 
     def sha256_file(self, path):
-
         sha = hashlib.sha256()
-
         with open(path, "rb") as f:
             while True:
                 data = f.read(1024 * 1024)
                 if not data:
                     break
                 sha.update(data)
-
         return sha.hexdigest()
 
     # ------------------------
@@ -40,59 +35,49 @@ class CloudClient:
     # ------------------------
 
     def check_instant(self, filepath, size, sha256, path):
-
         url = self.server + "api/upload/check/"
         filename = os.path.basename(filepath)
-
         r = self.session.post(url, json={
             "filename": filename,
             "size": size,
             "sha256": sha256,
             "path": path,
+            "parent_id":self.parent_id,
             "mtime": os.stat(filepath).st_mtime,
         })
-
         r.raise_for_status()
         print(r.json())
-
         return r.json()
 
     def create_upload(self, filename, size, sha256, path):
-
         total_chunks = math.ceil(size / self.chunk_size)
-
         url = self.server + "api/upload/create/"
-
         r = self.session.post(url, json={
             "filename": filename,
             "size": size,
             "chunk_size": self.chunk_size,
             "total_chunks": total_chunks,
             "sha256": sha256,
+            "parent_id": self.parent_id,
             "path": path
         })
-
         r.raise_for_status()
-
         return r.json()["upload_id"], total_chunks
 
     def get_uploaded_chunks(self, upload_id):
-
         url = self.server + "api/upload/status/"
-
         r = self.session.get(url, params={
-            "upload_id": upload_id
+            "upload_id": upload_id,
+            "parent_id": self.parent_id,
         })
-
         r.raise_for_status()
-
         return set(r.json()["uploaded_chunks"])
 
     def upload_chunk(self, upload_id, offset, chunk_bytes):
         files = {"file": ("chunk", chunk_bytes)}
         r = self.session.post(
             self.server + "api/upload/chunk/",
-            data={"upload_id": upload_id, "offset": offset},
+            data={"upload_id": upload_id, "offset": offset,"parent_id":self.parent_id},
             files=files
         )
         r.raise_for_status()
@@ -102,6 +87,7 @@ class CloudClient:
         url = self.server + "api/upload/finish/"
         r = self.session.post(url, json={
             "upload_id": upload_id,
+            "parent_id": self.parent_id,
             "mtime": os.stat(filepath).st_mtime
         })
         r.raise_for_status()
@@ -164,44 +150,32 @@ class CloudClient:
     # ------------------------
 
     def mkdir(self, path, name):
-
         url = self.server + "api/files/mkdir/"
-
         r = self.session.post(url, json={
             "path": path,
+            "parent_id": self.parent_id,
             "name": name
         })
         print("status:", r.status_code)
         print("response:", r.text)
-
         r.raise_for_status()
-
         return r.json()
 
     def list_dir(self, path="/"):
-
         url = self.server + "api/files/"
-
         r = self.session.get(url, params={
-            "path": path
+            "path": path,
+            "parent_id": self.parent_id,
         })
-
         r.raise_for_status()
-
         return r.json()
 
     def download(self, file_id, save_path):
-
         url = self.server + f"api/files/{file_id}/download/"
-
         with self.session.get(url, stream=True) as r:
-
             r.raise_for_status()
-
             with open(save_path, "wb") as f:
-
                 for chunk in r.iter_content(1024 * 1024):
-
                     if chunk:
                         f.write(chunk)
 

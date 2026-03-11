@@ -13,7 +13,7 @@ from .views import (
 
 
 router = DefaultRouter()
-router.register("files", FileNodeViewSet, basename="files")
+# router.register("files", FileNodeViewSet, basename="files")
 
 urlpatterns = [
     path("upload/check/", check_file),
