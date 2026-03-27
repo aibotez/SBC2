@@ -61,7 +61,7 @@ DATABASES = {
         "NAME": "django",
         "USER": "django",
         "PASSWORD": "zhouyajie12",
-        "HOST": "127.0.0.1",
+        "HOST": "192.168.10.102",
         "PORT": "5432",
         "CONN_MAX_AGE": 60,  # 连接复用，非常重要
         "DISABLE_SERVER_SIDE_CURSORS": True,
